@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+</head>
+<body>
+    <button id="clearBtn">clear</button>
+    <button id="ajaxBtn">ajax</button>
+    <button id="fetchBtn">fetch</button>
+    <input type="text" name="ws" id="wsIpt">
+    <button id="websocketBtn">ws建立连接</button>
+    <button id="wsSendBtn">ws发送数据</button>
+    <button id="sseBtn">sse开始</button>
+    <hr>
+    <div id="result"></div>
+</body>
+<script>
+    function clear() {
+        document.querySelector("#result").innerHTML = "";
+    }
+    function appendResult(msg) {
+        var dom = document.querySelector("#result");
+        dom.innerHTML = dom.innerHTML + "<br>" + msg;
+    }
+    document.querySelector("#clearBtn").onclick = function() {
+        clear();
+    }
+    document.querySelector("#ajaxBtn").onclick = function() {
+        clear();
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                document.getElementById("result").innerHTML = this.responseText;
+            }
+        };
+        xhttp.open("GET", "/api/user/list", true);
+        xhttp.send();
+    }
+    document.querySelector("#fetchBtn").onclick = function() {
+        clear();
+        fetch("/api/user/list")
+            .then(resp => {
+                var headers = resp.headers;
+                for (let key of headers.keys()) {
+                    console.log(key + ":" + headers.get(key))
+                }
+                return resp.text();
+            })
+            .then(data => {
+                document.getElementById("result").innerHTML = data;
+            });
+    }
+    var ws = null;
+    document.querySelector("#websocketBtn").onclick = function() {
+        clear()
+        ws = new WebSocket("ws://127.0.0.1/api/ws");
+        init(ws)
+    }
+    document.querySelector("#wsSendBtn").onclick = function() {
+        var msg = document.querySelector("#wsIpt").value;
+        if (ws == null) {
+            alert('未连接')
+            return
+        }
+        ws.send(msg)
+    }
+    function init(ws) {
+        ws.onerror = function(evt) {
+            console.log(evt)
+            appendResult('出现错误')
+            ws = null;
+        }
+        ws.onopen = function() {
+            appendResult('已连接')
+        }
+        ws.onmessage = function(evt) {
+            appendResult('收到数据:' + evt.data)
+        }
+        ws.onclose = function() {
+            appendResult('已关闭')
+            ws = null;
+        }
+    }
+    document.querySelector("#sseBtn").onclick = function() {
+        clear()
+        var eventSource = new EventSource('/api/sse/start');
+        eventSource.addEventListener('message', function(e) {
+            console.log(e.data);
+            appendResult(e.data);
+       });
+
+       eventSource.addEventListener('open', function(e) {
+            console.log("Connection was opened.");
+            console.log(e);
+            appendResult("open");
+       }, false);
+
+       eventSource.addEventListener('error', function(e) {
+            eventSource.close();
+            console.log("error");
+            console.log(e);
+            appendResult("error");
+       }, false);
+    }
+    
+</script>
+</html>
